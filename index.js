@@ -55,6 +55,45 @@ app.post('/api/verify', (req, res) => {
     }
 })
 
+// Register user and generate temporary Secret
+app.post('/api/register', (req, res) => {
+    const id = uuid.v4()
+    try {
+        const path = `/user/${id}`
+        const temp_secret = speakeasy.generateSecret()
+        db.push(path, { id, temp_secret} )
+        res.json({ id, secret: temp_secret.base32 })
+    } catch (err) {
+        res.status(500).json({ message: "Error in generating Secret" })
+    }
+})
+
+// validate token
+app.post('/api/validate', (req, res) => {
+    const {token, userId} = req.body
+
+    try {
+        const path = `/user/${userId}`;
+        const user = db.getData(path);
+
+        const { base32: secret } = user.secret;
+        const tokenValidates = speakeasy.totp.verify({
+      secret,
+      encoding: 'base32',
+      token,
+      window: 1
+    })
+
+            if(tokenValidates) {
+                res.json({ validated: true })
+            } else {
+                res.json({ validated: false })
+            }
+    } catch (err) {
+        res.status(500).json({ message: "Error Finding user" })
+    }
+})
+
 const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => console.log(`Server started on Port ${PORT}`))
